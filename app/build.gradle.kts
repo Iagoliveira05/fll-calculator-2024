@@ -50,6 +50,9 @@ android {
 }
 
 dependencies {
+
+    implementation(libs.androidx.runtime.livedata)
+
     implementation (libs.androidx.constraintlayout.compose)
 
 
