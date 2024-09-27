@@ -9,5 +9,6 @@ data class MissionModel(
 
 data class GoalsModel(
     val goal: String,
-    val score: Int
+    val score: Int,
+    var checked: Boolean = false
 )

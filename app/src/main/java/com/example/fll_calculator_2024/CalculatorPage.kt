@@ -1,8 +1,11 @@
 package com.example.fll_calculator_2024
 
-import android.util.Log
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,7 +50,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun CalculatorPage(modifier: Modifier = Modifier, viewModel: MissionViewModel) {
     val missionList by viewModel.missionList.observeAsState()
-
+    val score by viewModel.score.observeAsState()
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -79,7 +81,9 @@ fun CalculatorPage(modifier: Modifier = Modifier, viewModel: MissionViewModel) {
                     .padding(horizontal = 20.dp, vertical = 10.dp)
             )
 
-            Title()
+            score?.let {
+                Title(score = it)
+            } ?: Title(score = 0)
 
 
             missionList?.let {
@@ -89,21 +93,32 @@ fun CalculatorPage(modifier: Modifier = Modifier, viewModel: MissionViewModel) {
                         .padding(20.dp),
                     content = {
                         itemsIndexed(it) { index, item ->
-                            var extendedState by remember { mutableStateOf(true) }
+                            var extendedState by remember { mutableStateOf(false) }
+                            Crossfade(
+                                targetState = extendedState.toString(),
+                                label = "cross fade",
+                                animationSpec = tween(
+                                    durationMillis = 300,
+                                    easing = FastOutSlowInEasing
+                                )
+                            ) { screen ->
+                                when (screen) {
+                                    false.toString() -> {
+                                        MissionItemCondensed(
+                                            mission = item,
+                                            onCondensedClick = { extendedState = !extendedState }
+                                        )
+                                    }
 
-                            when (extendedState) {
-                                false -> {
-                                    MissionItemCondensed(
-                                        mission = item,
-                                        onCondensedClick = { extendedState = !extendedState }
-                                    )
-                                }
-
-                                true -> {
-                                    MissionItemExtended(
-                                        mission = item,
-                                        onExtendedClick = { extendedState = !extendedState }
-                                    )
+                                    true.toString() -> {
+                                        MissionItemExtended(
+                                            mission = item,
+                                            onExtendedClick = { extendedState = !extendedState },
+                                            onCheckedChange = {
+                                                viewModel.checkedChange()
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -116,7 +131,7 @@ fun CalculatorPage(modifier: Modifier = Modifier, viewModel: MissionViewModel) {
 
 
 @Composable
-fun Title() {
+fun Title(score: Int) {
     Spacer(modifier = Modifier.height(30.dp))
     Text(
         text = "Missões",
@@ -137,7 +152,7 @@ fun Title() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
-        text = "Pontuação: 10pts.",
+        text = "Pontuação: ${score}pts.",
         style = TextStyle(
             fontSize = 20.sp,
             color = Color.White,
@@ -157,6 +172,7 @@ fun MissionItemCondensed(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .clickable { onCondensedClick() }
             .padding(vertical = 8.dp)
             .shadow(elevation = 10.dp, shape = RoundedCornerShape(20))
             .background(color = Color.White, shape = RoundedCornerShape(20))
@@ -197,13 +213,12 @@ fun MissionItemCondensed(
                 )
             }
 
-            IconButton(onClick = { onCondensedClick() }) {
-                Icon(
-                    tint = Color.Black,
-                    painter = painterResource(id = R.drawable.icon_arrow_down),
-                    contentDescription = null
-                )
-            }
+            Icon(
+                tint = Color.Black,
+                painter = painterResource(id = R.drawable.icon_arrow_down),
+                contentDescription = null
+            )
+
         }
     }
 }
@@ -212,17 +227,21 @@ fun MissionItemCondensed(
 fun MissionItemExtended(
     modifier: Modifier = Modifier,
     mission: MissionModel,
-    onExtendedClick: () -> Unit
+    onExtendedClick: () -> Unit,
+    onCheckedChange: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .clickable { onExtendedClick() }
             .padding(vertical = 8.dp)
             .shadow(elevation = 5.dp, shape = RoundedCornerShape(10))
             .background(color = Color.White, shape = RoundedCornerShape(10))
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -254,18 +273,25 @@ fun MissionItemExtended(
             )
 
             mission.goalsList.forEach {
+                var checked by remember { mutableStateOf(it.checked) }
                 Row(
                     modifier = Modifier
                         .fillMaxSize(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
-                        checked = false,
-                        onCheckedChange = {}
+                        checked = checked,
+                        onCheckedChange = { _ ->
+                            it.checked = !it.checked
+                            checked = it.checked
+
+                            onCheckedChange()
+
+                        }
                     )
                     Text(
                         modifier = Modifier.padding(end = 10.dp),
-                        text = "${it.goal} pts.",
+                        text = "${it.goal} ${it.score} pts.",
                         style = TextStyle(
                             fontSize = 13.sp,
                             color = Color.Black,
@@ -276,18 +302,15 @@ fun MissionItemExtended(
                 }
             }
         }
-        IconButton(
-            onClick = { onExtendedClick() },
+        Icon(
+
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 20.dp)
-        ) {
-            Icon(
-                tint = Color.Black,
-                painter = painterResource(id = R.drawable.icon_arrow_up),
-                contentDescription = null
-            )
-        }
+                .padding(top = 20.dp),
+            tint = Color.Black,
+            painter = painterResource(id = R.drawable.icon_arrow_up),
+            contentDescription = null
+        )
     }
 }
 
